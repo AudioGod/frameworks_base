@@ -73,6 +73,11 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.Vibrator;
 import android.provider.Settings;
+import android.renderscript.Allocation;
+import android.renderscript.Allocation.MipmapControl;
+import android.renderscript.Element;
+import android.renderscript.RenderScript;
+import android.renderscript.ScriptIntrinsicBlur;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.NotificationListenerService.RankingMap;
 import android.service.notification.StatusBarNotification;
@@ -119,6 +124,7 @@ import com.android.systemui.EventLogTags;
 import com.android.systemui.Prefs;
 import com.android.systemui.R;
 import com.android.systemui.assist.AssistManager;
+import com.android.systemui.cm.UserContentObserver;
 import com.android.systemui.doze.DozeHost;
 import com.android.systemui.doze.DozeLog;
 import com.android.systemui.keyguard.KeyguardViewMediator;
@@ -394,6 +400,8 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
 
     private int mNavigationIconHints = 0;
     private HandlerThread mHandlerThread;
+    private int mBlurRadius;
+    private Bitmap mBlurredImage = null;
 
 	Runnable mLongPressBrightnessChange = new Runnable() {
         @Override
@@ -415,6 +423,9 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                     Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL), false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.SCREEN_BRIGHTNESS_MODE), false, this);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.LOCKSCREEN_BLUR_RADIUS),
+                    false, this, UserHandle.USER_ALL);		
             update();
         }
 
@@ -430,7 +441,8 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                     Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC;
             mBrightnessControl = !autoBrightness && Settings.System.getInt(
                     resolver, Settings.System.STATUS_BAR_BRIGHTNESS_CONTROL, 0) == 1;
-
+			mBlurRadius = Settings.System.getInt(resolver,
+                    Settings.System.LOCKSCREEN_BLUR_RADIUS, 14);
             if (mNavigationBarView != null) {
                 boolean navLeftInLandscape = Settings.System.getInt(resolver,
                         Settings.System.NAVBAR_LEFT_IN_LANDSCAPE, 0) == 1;
@@ -1875,6 +1887,12 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
         }
 
         final boolean hasArtwork = artworkBitmap != null;
+
+        // apply blurred image
+        if (backdropBitmap == null) {
+            backdropBitmap = mBlurredImage;
+            // might still be null
+        }
 
         if ((hasArtwork || DEBUG_MEDIA_FAKE_ARTWORK)
                 && (mState == StatusBarState.KEYGUARD || mState == StatusBarState.SHADE_LOCKED)
@@ -4449,6 +4467,44 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                 || mFingerprintUnlockController.getMode()
                         == FingerprintUnlockController.MODE_WAKE_AND_UNLOCK_PULSING;
         updateDozingState();
+    }
+
+    public void setBackgroundBitmap(Bitmap bmp) {
+        if (bmp != null) {
+            if (mBlurRadius != 0) {
+                mBlurredImage = blurBitmap(bmp, mBlurRadius);
+            } else {
+                mBlurredImage = bmp;
+            }
+        } else {
+            mBlurredImage = null;
+        }
+
+        mHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                updateMediaMetaData(true);
+            }
+        });
+    }
+
+    private Bitmap blurBitmap(Bitmap bmp, int radius) {
+        Bitmap out = Bitmap.createBitmap(bmp);
+        RenderScript rs = RenderScript.create(mContext);
+
+        Allocation input = Allocation.createFromBitmap(
+                rs, bmp, MipmapControl.MIPMAP_NONE, Allocation.USAGE_SCRIPT);
+        Allocation output = Allocation.createTyped(rs, input.getType());
+
+        ScriptIntrinsicBlur script = ScriptIntrinsicBlur.create(rs, Element.U8_4(rs));
+        script.setInput(input);
+        script.setRadius(radius);
+        script.forEach(output);
+
+        output.copyTo(out);
+
+        rs.destroy();
+        return out;
     }
 
     private final class ShadeUpdates {
