@@ -24,6 +24,9 @@
     <!-- Screenshot -->
     <string name="shortcut_screenshot">Screenshot</string>
 	
+	<!-- Gesture Everywhere -->
+	<string name="gestures_message">Draw your gesture here</string>
+	
 	<!-- USB tether QS tile -->
     <string name="accessibility_quick_settings_usb_tether_off">USB tethering off</string>
     <string name="accessibility_quick_settings_usb_tether_on">USB tethering on</string>
