@@ -119,7 +119,7 @@
 
     <!-- The default tiles to display in QuickSettings -->
     <string name="quick_settings_tiles_default" translatable="false">
-    <string name="quick_settings_tiles_default" translatable="false"> wifi,bt,inversion,dnd,cell,airplane,rotation,flashlight,headsup,screenoff,location,cast,hotspot,timeout,usb_tether,ambient_display,screenshot,nfc,sync,battery_saver,reboot,music,brightness,expanded_desktop,sound
+    <string name="quick_settings_tiles_default" translatable="false"> airplane,ambient_display,battery_saver,bt,brightness,cast,cell,dnd,expanded_desktop,flashlight,headsup,hotspot,inversion,location,music,nfc,reboot,rotation,screenoff,screenshot,sound,sync,themes,timeout,usb_tether,wifi
     </string>
 
     <!-- The tiles to display in QuickSettings -->
